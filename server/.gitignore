@@ -1,0 +1,6 @@
+node_modules/
+.env
+cert/*.pem
+uploads/
+logs/
+*.log

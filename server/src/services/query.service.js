@@ -1,0 +1,35 @@
+const db = require('../db');
+const providers = require('../providers');
+const { clientIp } = require('../utils/helper');
+
+async function platforms() {
+  return db.query('SELECT code,name,short,color,icon FROM mark_platform WHERE enabled=1 ORDER BY sort ASC, id ASC');
+}
+
+/**
+ * 查询号码标记
+ * @returns {{markCount:number, list:Array, provider:string}}
+ */
+async function queryMark(phone, openid = null, req = null) {
+  const ps = await platforms();
+  const provider = await providers.current();
+  let list;
+  try {
+    list = await provider.query(phone, ps);
+  } catch (e) {
+    e.status = e.status || 502;
+    e.expose = true;
+    e.message = '标记查询服务暂时不可用：' + e.message;
+    throw e;
+  }
+  const markCount = list.filter((x) => x.marked).length;
+
+  await db.query(
+    'INSERT INTO mark_query (phone, openid, mark_count, result_json, provider, ip) VALUES (?,?,?,?,?,?)',
+    [phone, openid, markCount, JSON.stringify(list), provider.name, req ? clientIp(req) : null]
+  );
+
+  return { markCount, list, provider: provider.name };
+}
+
+module.exports = { platforms, queryMark };
