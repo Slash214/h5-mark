@@ -107,8 +107,23 @@
           <el-form-item label="商户号 mchid">
             <el-input v-model="form.wxpay_mchid" placeholder="10 位商户号" />
           </el-form-item>
-          <el-form-item label="证书序列号">
-            <el-input v-model="form.wxpay_serial_no" placeholder="商户 API 证书序列号" />
+          <el-form-item label="证书序列号" required>
+            <div class="pem-row">
+              <el-input v-model="form.wxpay_serial_no" placeholder="上传 apiclient_cert.pem 后自动填入" readonly />
+              <el-upload
+                :action="pemAction"
+                :headers="uploadHeaders"
+                :data="{ kind: 'cert' }"
+                name="file"
+                :show-file-list="false"
+                accept=".pem,.crt"
+                :on-success="onCertOk"
+                :on-error="onPemErr"
+              >
+                <el-button type="primary" plain>上传证书 apiclient_cert.pem</el-button>
+              </el-upload>
+            </div>
+            <div class="hint" style="margin-left:0">从商户 API 证书自动解析序列号，一般无需手填</div>
           </el-form-item>
           <el-form-item label="APIv3 密钥">
             <el-input v-model="form.wxpay_api_v3_key" show-password placeholder="32 位 APIv3 Key" />
@@ -116,13 +131,25 @@
           <el-form-item label="支付回调 URL">
             <el-input v-model="form.wxpay_notify_url" placeholder="https://域名/api/pay/notify" />
           </el-form-item>
-          <el-form-item label="商户私钥 PEM">
-            <el-input
-              v-model="form.wxpay_private_key"
-              type="textarea"
-              :rows="8"
-              placeholder="粘贴 apiclient_key.pem 全文，含 -----BEGIN PRIVATE KEY-----" />
-            <div class="hint" style="margin-left:0">优先用此处内容；留空则读服务器 cert/apiclient_key.pem</div>
+          <el-form-item label="商户私钥" required>
+            <div class="pem-row">
+              <el-tag v-if="form.wxpay_private_key" type="success" effect="plain">已配置私钥（{{ privateKeyHint }}）</el-tag>
+              <el-tag v-else type="info" effect="plain">未配置</el-tag>
+              <el-upload
+                :action="pemAction"
+                :headers="uploadHeaders"
+                :data="{ kind: 'key' }"
+                name="file"
+                :show-file-list="false"
+                accept=".pem,.key"
+                :on-success="onKeyOk"
+                :on-error="onPemErr"
+              >
+                <el-button type="primary" plain>上传私钥 apiclient_key.pem</el-button>
+              </el-upload>
+              <el-button v-if="form.wxpay_private_key" link type="danger" @click="form.wxpay_private_key = ''">清除</el-button>
+            </div>
+            <div class="hint" style="margin-left:0">上传后自动写入配置；保存设置后生效</div>
           </el-form-item>
         </el-form>
       </el-tab-pane>
@@ -150,12 +177,21 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
-import { api } from '../api';
+import { api, getToken } from '../api';
 import UploadImage from '../components/UploadImage.vue';
+import { ElMessage } from 'element-plus';
 
 const tab = ref('price');
 const form = ref({});
 const saving = ref(false);
+
+const pemAction = '/api/admin/upload/wxpay-pem';
+const uploadHeaders = computed(() => ({ Authorization: `Bearer ${getToken()}` }));
+const privateKeyHint = computed(() => {
+  const k = form.value.wxpay_private_key || '';
+  if (!k) return '';
+  return `${Math.round(k.length / 1024 * 10) / 10 || '<1'}KB`;
+});
 
 const priceYuan = computed({
   get: () => Number(form.value.price || 0) / 100,
@@ -165,6 +201,26 @@ const originYuan = computed({
   get: () => Number(form.value.origin_price || 0) / 100,
   set: (v) => { form.value.origin_price = Math.round(v * 100); },
 });
+
+function onCertOk(res) {
+  if (res?.code === 0 && res.data?.serialNo) {
+    form.value.wxpay_serial_no = res.data.serialNo;
+    ElMessage.success('证书序列号已自动填入：' + res.data.serialNo);
+  } else {
+    ElMessage.error(res?.msg || '证书解析失败');
+  }
+}
+function onKeyOk(res) {
+  if (res?.code === 0 && res.data?.privateKey) {
+    form.value.wxpay_private_key = res.data.privateKey;
+    ElMessage.success('商户私钥已读取，请点击下方「保存设置」');
+  } else {
+    ElMessage.error(res?.msg || '私钥解析失败');
+  }
+}
+function onPemErr() {
+  ElMessage.error('上传失败，请确认文件为微信商户平台下载的 pem');
+}
 
 async function load() {
   const r = await api.configs();
@@ -176,7 +232,6 @@ async function save() {
   saving.value = true;
   try {
     await api.saveConfigs(form.value);
-    // 微信配置变更后立即生效（服务端会清 token 缓存）
   } finally { saving.value = false; }
 }
 onMounted(load);
@@ -184,4 +239,6 @@ onMounted(load);
 
 <style scoped>
 .hint { margin-left: 12px; color: #909399; font-size: 12px; }
+.pem-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; width: 100%; }
+.pem-row .el-input { flex: 1; min-width: 220px; }
 </style>
