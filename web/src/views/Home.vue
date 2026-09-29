@@ -6,7 +6,6 @@
     </div>
 
     <div class="wrap">
-      <!-- 查询框 -->
       <div class="search-card">
         <input
           v-model="phone"
@@ -22,34 +21,44 @@
         </button>
       </div>
 
-      <!-- 支持平台 -->
-      <div class="card mt16">
+      <div class="panel mt16">
         <h2 class="card-title">支持去除以下平台标记</h2>
         <div class="plat-grid">
           <div v-for="p in store.platforms" :key="p.code" class="plat-item">
-            <div class="plat-dot" :style="{ background: p.color }">
-              <img v-if="p.icon" :src="p.icon" :alt="p.name" />
-              <span v-else>{{ p.short || p.name.slice(0, 1) }}</span>
-            </div>
+            <PlatIcon
+              :code="p.code"
+              :name="p.name"
+              :short="p.short"
+              :color="p.color"
+              :icon="p.icon"
+            />
             <div class="plat-name">{{ p.name }}</div>
           </div>
         </div>
       </div>
 
-      <!-- 入口 -->
-      <div class="card mt16 link-card" @click="$router.push('/appeal')">
-        <span>申诉说明</span>
-        <van-icon name="arrow" />
-      </div>
-
-      <div class="card mt12 link-card" @click="$router.push('/articles')">
-        <span>资讯文章</span>
-        <van-icon name="arrow" />
-      </div>
-
-      <div class="card mt12 link-card" @click="$router.push('/tasks')">
-        <span>处理进度查询</span>
-        <van-icon name="arrow" />
+      <div class="menu-list mt16">
+        <div class="menu-item" @click="$router.push('/appeal')">
+          <span class="menu-ico appeal">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 4v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7l8-4z"/><path d="M9 12l2 2 4-4"/></svg>
+          </span>
+          <span class="menu-text">申诉说明</span>
+          <van-icon name="arrow" class="arrow" />
+        </div>
+        <div class="menu-item" @click="$router.push('/articles')">
+          <span class="menu-ico news">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h12a2 2 0 012 2v12H6a2 2 0 01-2-2V5z"/><path d="M8 9h8M8 13h6"/></svg>
+          </span>
+          <span class="menu-text">资讯文章</span>
+          <van-icon name="arrow" class="arrow" />
+        </div>
+        <div class="menu-item" @click="$router.push('/tasks')">
+          <span class="menu-ico task">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+          </span>
+          <span class="menu-text">处理进度查询</span>
+          <van-icon name="arrow" class="arrow" />
+        </div>
       </div>
 
       <div class="foot-links">
@@ -71,6 +80,7 @@ import { useRouter } from 'vue-router';
 import { showToast, showLoadingToast, closeToast, Icon as VanIcon } from 'vant';
 import { store } from '../store';
 import { queryMark } from '../api';
+import PlatIcon from '../components/PlatIcon.vue';
 
 const router = useRouter();
 const phone = ref(localStorage.getItem('h5mark_last_phone') || '');
@@ -96,21 +106,21 @@ async function doQuery() {
 </script>
 
 <style scoped>
-.home { background: #f5f6f8; }
+.home { background: #f3f5f9; }
 .hero {
-  background: linear-gradient(180deg, #2f5bef 0%, #2340d8 100%);
-  padding: 46px 16px 64px;
+  background: linear-gradient(165deg, #3b6cf6 0%, #2b4acb 55%, #1e3aa8 100%);
+  padding: 48px 16px 70px;
   text-align: center;
 }
 .hero-title { margin: 0; font-size: 26px; font-weight: 700; color: #fff; letter-spacing: 2px; }
-.hero-sub { margin: 10px 0 0; font-size: 13px; color: rgba(255, 255, 255, 0.82); }
+.hero-sub { margin: 10px 0 0; font-size: 13px; color: rgba(255, 255, 255, 0.85); }
 
-.wrap { padding: 0 16px 24px; margin-top: -30px; position: relative; z-index: 2; }
+.wrap { padding: 0 16px 28px; margin-top: -36px; position: relative; z-index: 2; }
 
 .search-card {
   background: #fff;
-  border-radius: 40px;
-  box-shadow: 0 6px 20px rgba(20, 40, 90, 0.12);
+  border-radius: 28px;
+  border: 1px solid rgba(43, 74, 203, 0.08);
   display: flex;
   align-items: center;
   padding: 6px 6px 6px 18px;
@@ -126,27 +136,57 @@ async function doQuery() {
 .search-input::placeholder { color: #b6bcc7; }
 .search-btn {
   border: none;
-  background: var(--brand-2);
+  background: linear-gradient(135deg, #3b6cf6, #2b4acb);
   color: #fff;
   font-size: 15px;
-  padding: 0 24px;
+  padding: 0 22px;
   height: 42px;
   line-height: 42px;
-  border-radius: 34px;
+  border-radius: 22px;
+  font-weight: 600;
 }
 .search-btn:disabled { opacity: 0.7; }
 
-.card-title { margin: 4px 0 18px; font-size: 16px; font-weight: 700; text-align: center; }
+.panel {
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid #eef0f4;
+  padding: 18px 14px 16px;
+}
+.card-title { margin: 0 0 18px; font-size: 15px; font-weight: 700; text-align: center; color: #1f2329; }
 
-.link-card {
+.plat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px 6px;
+}
+.plat-item { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.plat-name { font-size: 12px; color: #5b6472; }
+
+.menu-list {
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid #eef0f4;
+  overflow: hidden;
+}
+.menu-item {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  font-size: 15px;
-  font-weight: 600;
-  padding: 18px 16px;
+  gap: 12px;
+  padding: 16px;
+  border-bottom: 1px solid #f2f3f6;
 }
+.menu-item:last-child { border-bottom: none; }
+.menu-ico {
+  width: 34px; height: 34px; border-radius: 10px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.menu-ico.appeal { background: #eef2ff; color: #3b6cf6; }
+.menu-ico.news { background: #ecfdf5; color: #10b981; }
+.menu-ico.task { background: #fff7ed; color: #f59e0b; }
+.menu-text { flex: 1; font-size: 15px; font-weight: 600; }
+.arrow { color: #c4c9d2; }
 
-.foot-links { margin-top: 20px; text-align: center; color: #9aa2ad; font-size: 13px; }
+.foot-links { margin-top: 22px; text-align: center; color: #9aa2ad; font-size: 13px; }
 .foot-links i { margin: 0 8px; font-style: normal; }
 </style>

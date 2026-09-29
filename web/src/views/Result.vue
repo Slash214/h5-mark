@@ -1,10 +1,9 @@
 <template>
-  <div class="page result">
+  <div class="page result" :class="{ 'has-pay': showPayBar }">
     <van-nav-bar title="查询" left-arrow @click-left="$router.back()" />
 
     <div class="wrap">
-      <!-- 号码卡片 -->
-      <div class="card phone-card">
+      <div class="panel phone-card">
         <div class="row">
           <div class="phone">{{ data.phone }}</div>
           <span v-if="data.isMember" class="tag tag-vip">会员</span>
@@ -16,33 +15,54 @@
         </div>
       </div>
 
-      <h2 class="mark-title">
-        您的号码已被 <b>{{ data.markCount }}</b> 个平台标记
+      <h2 class="mark-title" :class="{ clean: !data.markCount }">
+        <template v-if="data.markCount > 0">
+          您的号码已被 <b>{{ data.markCount }}</b> 个平台标记
+        </template>
+        <template v-else>
+          未检测到平台标记
+        </template>
       </h2>
 
-      <!-- 未开通：遮罩条 -->
+      <!-- 未开通 -->
       <template v-if="!data.isMember">
-        <div v-for="(it, i) in data.list" :key="'lock' + i" class="card mark-row">
-          <div class="mark-left">
-            <span class="crown">👑</span>
-            <span class="lock-text">开通会员后可见</span>
+        <template v-if="data.markCount > 0">
+          <div v-for="(it, i) in data.list" :key="'lock' + i" class="panel mark-row">
+            <div class="mark-left">
+              <span class="lock-badge">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg>
+              </span>
+              <span class="lock-text">开通会员后可见</span>
+            </div>
+            <span class="badge-mark">有标记</span>
           </div>
-          <span class="badge-mark">有标记</span>
-        </div>
-        <div v-if="data.markCount === 0" class="card center clean">
-          <div class="clean-icon">✓</div>
-          <p>太棒了，当前未查询到该号码被标记</p>
+        </template>
+        <div v-else class="panel center clean">
+          <div class="clean-icon">
+            <svg viewBox="0 0 64 64" width="56" height="56" aria-hidden="true">
+              <circle cx="32" cy="32" r="30" fill="#ecfdf5"/>
+              <circle cx="32" cy="32" r="22" fill="#d1fae5"/>
+              <path d="M20 33.5l8 8 16-18" fill="none" stroke="#10b981" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <p class="clean-title">号码状态良好</p>
+          <p class="clean-desc">太棒了，当前未查询到该号码被标记</p>
         </div>
       </template>
 
       <!-- 已开通：明细 -->
       <template v-else>
-        <div v-for="it in markedList" :key="it.code" class="card mark-row column">
+        <div v-for="it in markedList" :key="it.code" class="panel mark-row column">
           <div class="row">
             <div class="mark-left">
-              <span class="plat-dot small" :style="{ background: platColor(it.code) }">
-                {{ platShort(it.code) }}
-              </span>
+              <PlatIcon
+                size="sm"
+                :code="it.code"
+                :name="it.name"
+                :short="platShort(it.code)"
+                :color="platColor(it.code)"
+                :icon="platIcon(it.code)"
+              />
               <div>
                 <div class="plat-title">{{ it.name }}</div>
                 <div v-if="it.tag" class="plat-tag">{{ it.tag }}</div>
@@ -55,19 +75,26 @@
           </div>
         </div>
 
-        <div v-if="!markedList.length" class="card center clean">
-          <div class="clean-icon">✓</div>
-          <p>该号码目前没有被任何平台标记</p>
+        <div v-if="!markedList.length" class="panel center clean">
+          <div class="clean-icon">
+            <svg viewBox="0 0 64 64" width="56" height="56" aria-hidden="true">
+              <circle cx="32" cy="32" r="30" fill="#ecfdf5"/>
+              <circle cx="32" cy="32" r="22" fill="#d1fae5"/>
+              <path d="M20 33.5l8 8 16-18" fill="none" stroke="#10b981" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <p class="clean-title">号码状态良好</p>
+          <p class="clean-desc">该号码目前没有被任何平台标记</p>
         </div>
 
-        <div v-if="markedList.length > 1" class="card mt12 tip-card">
+        <div v-if="markedList.length > 1" class="panel mt12 tip-card">
           <p>请分别点击各平台「立即处理」，跳转官方申诉页完成解标。</p>
         </div>
       </template>
     </div>
 
-    <!-- 未开通会员：底部支付栏 -->
-    <div v-if="!data.isMember" class="pay-bar safe-bottom">
+    <!-- 有标记且未开通：底部支付栏 -->
+    <div v-if="showPayBar" class="pay-bar safe-bottom">
       <p class="notice">{{ store.notice }}</p>
       <div class="agree">
         <van-checkbox v-model="agreed" icon-size="16px" checked-color="#2b4acb">
@@ -105,6 +132,7 @@ import {
 import { store, yuan, loadConfig } from '../store';
 import { queryMark, createPay, orderStatus } from '../api';
 import { getToken } from '../api/request';
+import PlatIcon from '../components/PlatIcon.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -117,8 +145,8 @@ const paying = ref(false);
 const showAgreement = ref(false);
 
 const markedList = computed(() => (data.value.list || []).filter((x) => x.marked));
+const showPayBar = computed(() => !data.value.isMember && Number(data.value.markCount || 0) > 0);
 
-/** 无数据库配置时的兜底申诉地址 */
 const FALLBACK_APPEAL = {
   '360': 'http://haomashensu.360.cn/index.html',
   tencent: 'https://yun.m.qq.com/content.html#1',
@@ -130,6 +158,7 @@ const FALLBACK_APPEAL = {
 const platMap = computed(() => Object.fromEntries((store.platforms || []).map((p) => [p.code, p])));
 const platColor = (code) => platMap.value[code]?.color || '#2b4acb';
 const platShort = (code) => platMap.value[code]?.short || (platMap.value[code]?.name || '').slice(0, 1);
+const platIcon = (code) => platMap.value[code]?.icon || '';
 
 function resolveAppealUrl(it) {
   return it.appealUrl
@@ -141,7 +170,6 @@ function resolveAppealUrl(it) {
 onMounted(async () => {
   await loadConfig().catch(() => {});
   if (!store.lastQuery && route.query.phone) await refresh();
-  // 支付回来后刷新
   if (route.query.orderNo) checkOrder(route.query.orderNo);
 });
 
@@ -157,7 +185,6 @@ async function refresh() {
   }
 }
 
-/* -------------------- 支付 -------------------- */
 async function doPay() {
   if (!agreed.value) return showToast('请先阅读并同意用户协议');
   if (!getToken()) return gotoAuth();
@@ -167,7 +194,6 @@ async function doPay() {
     const r = await createPay(data.value.phone);
     closeToast();
     if (r.devPaid) {
-      // 本地联调模式
       await onPaid(r.orderNo);
       return;
     }
@@ -194,26 +220,19 @@ function invokeWxPay(params, orderNo) {
       signType: params.signType,
       paySign: params.paySign,
     }, (res) => {
-      if (res.err_msg === 'get_brand_wcpay_request:ok') {
-        onPaid(orderNo);
-      } else if (res.err_msg === 'get_brand_wcpay_request:cancel') {
-        showToast('已取消支付');
-      } else {
-        showToast('支付未完成');
-      }
+      if (res.err_msg === 'get_brand_wcpay_request:ok') onPaid(orderNo);
+      else if (res.err_msg === 'get_brand_wcpay_request:cancel') showToast('已取消支付');
+      else showToast('支付未完成');
     });
   };
   if (typeof window.WeixinJSBridge === 'undefined') {
     document.addEventListener('WeixinJSBridgeReady', invoke, false);
     showToast('请在微信中打开本页面完成支付');
-  } else {
-    invoke();
-  }
+  } else invoke();
 }
 
 async function onPaid(orderNo) {
   showLoadingToast({ message: '正在确认支付结果...', forbidClick: true, duration: 0 });
-  // 微信回调可能有延迟，轮询 6 次
   for (let i = 0; i < 6; i++) {
     try {
       const o = await orderStatus(orderNo);
@@ -231,7 +250,6 @@ async function onPaid(orderNo) {
   showDialog({ title: '提示', message: '支付结果确认中，请稍后下拉刷新或联系客服。' });
 }
 
-/* -------------------- 跳转官方解标页 -------------------- */
 async function checkOrder(no) {
   try {
     const o = await orderStatus(no);
@@ -250,17 +268,24 @@ function handleAppeal(it) {
     }).then(() => router.push('/contact')).catch(() => {});
     return;
   }
-  // 微信内跳转外链
   window.location.href = url;
 }
 </script>
 
 <style scoped>
-.result { background: #f5f6f8; }
-.wrap { padding: 12px 16px 220px; }
+.result { background: #f3f5f9; }
+.wrap { padding: 12px 16px 28px; }
+.result.has-pay .wrap { padding-bottom: 210px; }
 
 .row { display: flex; align-items: center; justify-content: space-between; }
 .row.end { justify-content: flex-end; margin-top: 12px; }
+
+.panel {
+  background: #fff;
+  border-radius: 14px;
+  border: 1px solid #eef0f4;
+  padding: 16px;
+}
 
 .phone-card .phone { font-size: 24px; font-weight: 700; letter-spacing: 1px; }
 .tag { font-size: 12px; padding: 3px 10px; border-radius: 20px; }
@@ -269,47 +294,45 @@ function handleAppeal(it) {
 .expire { margin-top: 12px; padding-top: 12px; border-top: 1px solid #f0f1f3; font-size: 13px; }
 .left-days { color: var(--brand); }
 
-.mark-title { font-size: 17px; font-weight: 700; text-align: center; margin: 22px 0 14px; }
+.mark-title { font-size: 17px; font-weight: 700; text-align: center; margin: 20px 0 14px; }
 .mark-title b { color: var(--danger); margin: 0 2px; }
+.mark-title.clean { color: #059669; }
 
-.mark-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.mark-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
 .mark-row.column { display: block; }
 .mark-left { display: flex; align-items: center; gap: 10px; }
-.crown { font-size: 20px; }
+.lock-badge {
+  width: 32px; height: 32px; border-radius: 10px;
+  background: #fff7ed; color: #f59e0b;
+  display: inline-flex; align-items: center; justify-content: center;
+}
 .lock-text { color: #9aa2ad; font-size: 15px; }
-.plat-dot.small { width: 36px; height: 36px; font-size: 14px; margin: 0; }
 .plat-title { font-size: 15px; font-weight: 600; }
 .plat-tag { font-size: 12px; color: var(--text-2); margin-top: 2px; }
 .badge-mark { background: #ffeaec; color: #f5455a; font-size: 12px; padding: 4px 12px; border-radius: 20px; }
 
 .btn-mini {
-  background: var(--brand-2); color: #fff; border: none;
+  background: linear-gradient(135deg, #3b6cf6, #2b4acb); color: #fff; border: none;
   padding: 8px 22px; border-radius: 20px; font-size: 14px;
 }
-.btn-main {
-  background: var(--brand); color: #fff; border: none;
-  width: 100%; padding: 12px; border-radius: 24px; font-size: 15px;
-}
-.link-card { display: flex; align-items: center; justify-content: space-between; font-size: 15px; font-weight: 600; }
 .tip-card { font-size: 13px; color: var(--text-2); line-height: 1.6; }
 .tip-card p { margin: 0; }
 
-.clean { padding: 30px 16px; color: var(--text-2); }
-.clean-icon {
-  width: 52px; height: 52px; line-height: 52px; margin: 0 auto 12px;
-  border-radius: 50%; background: #e8f7ee; color: #22c55e; font-size: 26px;
-}
+.clean { padding: 36px 16px; }
+.clean-icon { margin: 0 auto 10px; width: 56px; height: 56px; }
+.clean-title { margin: 0 0 6px; font-size: 17px; font-weight: 700; color: #059669; }
+.clean-desc { margin: 0; color: var(--text-2); font-size: 13px; }
 
 .pay-bar {
   position: fixed; left: 0; right: 0; bottom: 0;
   background: #fff; padding: 10px 16px 12px;
-  box-shadow: 0 -4px 16px rgba(20, 40, 90, 0.08);
+  border-top: 1px solid #eef0f4;
 }
-.notice { margin: 0 0 8px; font-size: 11px; line-height: 1.6; color: #e6a23c; background: #fffbe6; padding: 8px 10px; border-radius: 8px; }
+.notice { margin: 0 0 8px; font-size: 11px; line-height: 1.6; color: #c47d0e; background: #fffbeb; padding: 8px 10px; border-radius: 8px; }
 .agree { display: flex; align-items: center; font-size: 12px; color: var(--text-2); margin-bottom: 10px; }
 .agree-link { color: var(--brand); }
 .pay-row { display: flex; align-items: center; gap: 10px; }
-.btn-service { background: var(--brand-2); color: #fff; border: none; padding: 10px 14px; border-radius: 22px; font-size: 13px; white-space: nowrap; }
+.btn-service { background: #3b6cf6; color: #fff; border: none; padding: 10px 14px; border-radius: 22px; font-size: 13px; white-space: nowrap; }
 .price { flex: 1; text-align: center; font-size: 13px; color: var(--text-2); }
 .price b { color: var(--danger); font-size: 18px; }
 .btn-pay { background: #f5455a; color: #fff; border: none; padding: 11px 26px; border-radius: 24px; font-size: 15px; white-space: nowrap; }
