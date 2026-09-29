@@ -3,7 +3,9 @@ const providers = require('../providers');
 const { clientIp } = require('../utils/helper');
 
 async function platforms() {
-  return db.query('SELECT code,name,short,color,icon FROM mark_platform WHERE enabled=1 ORDER BY sort ASC, id ASC');
+  return db.query(
+    'SELECT code,name,short,color,icon,appeal_url FROM mark_platform WHERE enabled=1 ORDER BY sort ASC, id ASC'
+  );
 }
 
 /**
@@ -19,9 +21,17 @@ async function queryMark(phone, openid = null, req = null) {
   } catch (e) {
     e.status = e.status || 502;
     e.expose = true;
-    e.message = '标记查询服务暂时不可用：' + e.message;
+    if (!String(e.message || '').startsWith('标记查询服务暂时不可用')) {
+      e.message = '标记查询服务暂时不可用：' + e.message;
+    }
     throw e;
   }
+  // 统一补齐解标跳转地址（来自平台字典）
+  const urlMap = Object.fromEntries(ps.map((p) => [p.code, p.appeal_url || '']));
+  list = (list || []).map((item) => ({
+    ...item,
+    appealUrl: item.appealUrl || urlMap[item.code] || '',
+  }));
   const markCount = list.filter((x) => x.marked).length;
 
   await db.query(

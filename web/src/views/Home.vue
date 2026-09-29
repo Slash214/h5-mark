@@ -80,7 +80,7 @@ async function doQuery() {
   const p = phone.value.trim();
   if (!/^1[3-9]\d{9}$/.test(p)) return showToast('请输入正确的手机号码');
   loading.value = true;
-  showLoadingToast({ message: '查询中...', forbidClick: true, duration: 0 });
+  showLoadingToast({ message: '查询中，约需十几秒...', forbidClick: true, duration: 0 });
   try {
     const data = await queryMark(p);
     localStorage.setItem('h5mark_last_phone', p);

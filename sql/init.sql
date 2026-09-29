@@ -29,21 +29,22 @@ CREATE TABLE `mark_platform` (
   `short`     VARCHAR(8)   NOT NULL DEFAULT '' COMMENT '圆形图标里的字',
   `color`     VARCHAR(16)  NOT NULL DEFAULT '#3b6cf6' COMMENT '圆形图标背景色',
   `icon`      VARCHAR(512) DEFAULT NULL COMMENT '图标地址(优先于 short/color)',
+  `appeal_url` VARCHAR(512) DEFAULT NULL COMMENT '解标/申诉官方跳转地址',
   `sort`      INT          NOT NULL DEFAULT 0,
   `enabled`   TINYINT      NOT NULL DEFAULT 1,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_code` (`code`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='支持去除标记的平台';
 
-INSERT INTO `mark_platform` (`code`,`name`,`short`,`color`,`sort`) VALUES
-('360','360','3','#22c55e',1),
-('baidu','百度','百','#2b4acb',2),
-('teddy','泰迪熊','泰','#f59e0b',3),
-('unicom','联通','联','#dc2626',4),
-('tencent','腾讯','腾','#38bdf8',5),
-('cmcc','移动高频','移','#0e7490',6),
-('dianhuabang','电话邦','电','#2563eb',7),
-('sogou','搜狗','搜','#f97316',8);
+INSERT INTO `mark_platform` (`code`,`name`,`short`,`color`,`appeal_url`,`sort`) VALUES
+('360','360','3','#22c55e','http://haomashensu.360.cn/index.html',1),
+('baidu','百度','百','#2b4acb','https://haoma.baidu.com',2),
+('teddy','泰迪熊','泰','#f59e0b','https://www.teddymobile.cn/numberComplain',3),
+('unicom','联通','联','#dc2626',NULL,4),
+('tencent','腾讯','腾','#38bdf8','https://yun.m.qq.com/content.html#1',5),
+('cmcc','移动高频','移','#0e7490',NULL,6),
+('dianhuabang','电话邦','电','#2563eb','http://www.dianhua.cn/appeal',7),
+('sogou','搜狗','搜','#f97316',NULL,8);
 
 -- ---------------- 查询记录 ----------------
 DROP TABLE IF EXISTS `mark_query`;
@@ -174,12 +175,21 @@ INSERT INTO `sys_config` (`k`,`v`,`name`,`type`,`group`,`sort`) VALUES
 ('oa_name','','公众号名称','text','contact',24),
 ('oa_qrcode','','公众号二维码','image','contact',25),
 
-('provider','mock','标记数据源(mock/http)','text','provider',30),
-('provider_url','','第三方查询接口地址','text','provider',31),
-('provider_key','','第三方接口密钥','text','provider',32),
-('provider_method','GET','请求方式 GET/POST','text','provider',33),
-('provider_phone_field','mobile','号码参数名','text','provider',34),
-('provider_key_field','key','密钥参数名','text','provider',35);
+('provider','qbc','标记数据源(mock/qbc/tmini/http)','text','provider',30),
+('provider_url','http://175.24.191.201/api/query.php','查询接口地址','text','provider',31),
+('provider_key','','接口密钥 api_key','text','provider',32),
+('provider_method','GET','请求方式 GET/POST(仅通用http)','text','provider',33),
+('provider_phone_field','phone','号码参数名(仅通用http)','text','provider',34),
+('provider_key_field','api_key','密钥参数名(仅通用http)','text','provider',35),
+
+('site_url','','站点域名(HTTPS，无末尾/)','text','wechat',40),
+('wx_appid','','公众号 AppID','text','wechat',41),
+('wx_appsecret','','公众号 AppSecret','text','wechat',42),
+('wxpay_mchid','','微信支付商户号','text','wechat',43),
+('wxpay_serial_no','','商户API证书序列号','text','wechat',44),
+('wxpay_api_v3_key','','APIv3密钥','text','wechat',45),
+('wxpay_notify_url','','支付回调URL','text','wechat',46),
+('wxpay_private_key','','商户私钥PEM全文','textarea','wechat',47);
 
 -- ---------------- 管理员 ----------------
 DROP TABLE IF EXISTS `admin_user`;

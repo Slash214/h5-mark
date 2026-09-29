@@ -2,6 +2,7 @@ const router = require('express').Router();
 const cfg = require('../config');
 const db = require('../db');
 const wx = require('../utils/wx');
+const wxcfg = require('../services/wxcfg.service');
 const { sign, userAuth } = require('../middleware/auth');
 const { ok, wrap } = require('../utils/helper');
 
@@ -11,21 +12,24 @@ const { ok, wrap } = require('../utils/helper');
  */
 router.get('/login', wrap(async (req, res) => {
   const redirect = req.query.redirect || '/';
+  const site = await wxcfg.siteUrl();
   if (cfg.dev.fakeLogin) {
     const token = await upsertUser(cfg.dev.mockOpenid);
-    return res.redirect(`${cfg.siteUrl}/#${redirect}${redirect.includes('?') ? '&' : '?'}token=${token}`);
+    return res.redirect(`${site}/#${redirect}${redirect.includes('?') ? '&' : '?'}token=${token}`);
   }
-  const cb = `${cfg.siteUrl}/api/auth/callback`;
+  const cb = `${site}/api/auth/callback`;
   const state = Buffer.from(JSON.stringify({ r: redirect })).toString('base64url');
-  res.redirect(wx.authorizeUrl(cb, state, req.query.scope === 'userinfo' ? 'snsapi_userinfo' : 'snsapi_base'));
+  const url = await wx.authorizeUrl(cb, state, req.query.scope === 'userinfo' ? 'snsapi_userinfo' : 'snsapi_base');
+  res.redirect(url);
 }));
 
 /** 2) 微信回跳 */
 router.get('/callback', wrap(async (req, res) => {
+  const site = await wxcfg.siteUrl();
   const { code, state } = req.query;
   let redirect = '/';
   try { redirect = JSON.parse(Buffer.from(state || '', 'base64url').toString()).r || '/'; } catch (e) { /* */ }
-  if (!code) return res.redirect(`${cfg.siteUrl}/#/?err=nocode`);
+  if (!code) return res.redirect(`${site}/#/?err=nocode`);
 
   const session = await wx.codeToSession(code);
   let profile = {};
@@ -33,7 +37,7 @@ router.get('/callback', wrap(async (req, res) => {
     try { profile = await wx.getUserInfoByOauth(session.access_token, session.openid); } catch (e) { /* */ }
   }
   const token = await upsertUser(session.openid, session.unionid, profile);
-  res.redirect(`${cfg.siteUrl}/#${redirect}${redirect.includes('?') ? '&' : '?'}token=${token}`);
+  res.redirect(`${site}/#${redirect}${redirect.includes('?') ? '&' : '?'}token=${token}`);
 }));
 
 /** 3) 前端用 code 换 token（SPA 自行调 wx 授权时用） */

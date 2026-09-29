@@ -62,12 +62,23 @@ DEV_FAKE_PAY=1     # 跳过微信支付，下单即视为已支付
 
 代码里做了**数据源适配层**，后台「系统配置 → 数据源」可切换，不用改代码：
 
-- `mock`：内置模拟数据，同一号码结果固定，用于演示和联调（默认）。
-- `http`：调用你自己的第三方查询接口。填好接口地址、请求方式、号码参数名、密钥即可。
+- `mock`：内置模拟数据，同一号码结果固定，用于演示和联调。
+- `qbc`（默认正式源）：`GET http://175.24.191.201/api/query.php?api_key=xxx&phone=xxx`，适配器见 `server/src/providers/qbc.js`。`api_key` 在后台配置，变更时只改密钥即可。
+- `tmini` / `http`：备用通用源。
 
-如果第三方返回结构比较特别，只需要改 `server/src/providers/http.js` 里的 `normalize()` 一个函数。
-也可以新建一个 `providers/xxx.js` 导出 `{ name, query(phone, platforms) }`，
-在 `providers/index.js` 里 `register()` 进去，后台配置项填对应名字即可。
+查询较慢（约 10~30 秒），服务端超时 60s，H5 请求超时 65s。
+
+会员点「立即处理」会按平台跳转官方申诉页（`mark_platform.appeal_url`），后台「平台配置」可改：
+
+| 平台 | 默认跳转 |
+|------|----------|
+| 360 | http://haomashensu.360.cn/index.html |
+| 腾讯 | https://yun.m.qq.com/content.html#1 |
+| 泰迪熊 | https://www.teddymobile.cn/numberComplain |
+| 电话邦 | http://www.dianhua.cn/appeal |
+| 百度 | https://haoma.baidu.com |
+
+已有数据库请执行：`mysql -uroot -p h5_mark < sql/migrate_qbc.sql`，再到后台填入 `api_key`。
 
 ## 主要接口
 

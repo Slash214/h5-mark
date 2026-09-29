@@ -23,7 +23,14 @@ router.get('/config', wrap(async (req, res) => {
       oaName: c.oa_name || '',
       oaQrcode: c.oa_qrcode || '',
     },
-    platforms,
+    platforms: platforms.map((p) => ({
+      code: p.code,
+      name: p.name,
+      short: p.short,
+      color: p.color,
+      icon: p.icon,
+      appealUrl: p.appeal_url || '',
+    })),
   }));
 }));
 

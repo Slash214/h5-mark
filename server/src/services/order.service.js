@@ -34,7 +34,7 @@ async function createJsapiOrder({ phone, openid }) {
   });
   await db.query('UPDATE pay_order SET prepay_id=? WHERE order_no=?', [pre.prepay_id, orderNo]);
 
-  return { orderNo, devPaid: false, payParams: wxpay.buildJsapiParams(pre.prepay_id) };
+  return { orderNo, devPaid: false, payParams: await wxpay.buildJsapiParams(pre.prepay_id) };
 }
 
 /** 标记订单已支付并开通会员（幂等） */

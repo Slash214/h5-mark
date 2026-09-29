@@ -51,7 +51,7 @@
             <span class="badge-mark">有标记</span>
           </div>
           <div class="row end">
-            <button class="btn-mini" :disabled="submitting" @click="handleClear([it.code])">立即处理</button>
+            <button class="btn-mini" @click="handleAppeal(it)">立即处理</button>
           </div>
         </div>
 
@@ -60,15 +60,8 @@
           <p>该号码目前没有被任何平台标记</p>
         </div>
 
-        <div v-if="markedList.length > 1" class="card mt12 center">
-          <button class="btn-main" :disabled="submitting" @click="handleClear(markedList.map((x) => x.code))">
-            一键处理全部标记
-          </button>
-        </div>
-
-        <div class="card mt12 link-card" @click="$router.push({ path: '/tasks', query: { phone: data.phone } })">
-          <span>查看处理进度</span>
-          <van-icon name="arrow" />
+        <div v-if="markedList.length > 1" class="card mt12 tip-card">
+          <p>请分别点击各平台「立即处理」，跳转官方申诉页完成解标。</p>
         </div>
       </template>
     </div>
@@ -106,11 +99,11 @@
 import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
-  NavBar as VanNavBar, Icon as VanIcon, Checkbox as VanCheckbox, Popup as VanPopup,
+  NavBar as VanNavBar, Checkbox as VanCheckbox, Popup as VanPopup,
   showToast, showLoadingToast, closeToast, showSuccessToast, showDialog,
 } from 'vant';
 import { store, yuan, loadConfig } from '../store';
-import { queryMark, createPay, orderStatus, submitClear } from '../api';
+import { queryMark, createPay, orderStatus } from '../api';
 import { getToken } from '../api/request';
 
 const route = useRoute();
@@ -121,14 +114,29 @@ const data = ref(
 );
 const agreed = ref(false);
 const paying = ref(false);
-const submitting = ref(false);
 const showAgreement = ref(false);
 
 const markedList = computed(() => (data.value.list || []).filter((x) => x.marked));
 
+/** 无数据库配置时的兜底申诉地址 */
+const FALLBACK_APPEAL = {
+  '360': 'http://haomashensu.360.cn/index.html',
+  tencent: 'https://yun.m.qq.com/content.html#1',
+  teddy: 'https://www.teddymobile.cn/numberComplain',
+  dianhuabang: 'http://www.dianhua.cn/appeal',
+  baidu: 'https://haoma.baidu.com',
+};
+
 const platMap = computed(() => Object.fromEntries((store.platforms || []).map((p) => [p.code, p])));
 const platColor = (code) => platMap.value[code]?.color || '#2b4acb';
 const platShort = (code) => platMap.value[code]?.short || (platMap.value[code]?.name || '').slice(0, 1);
+
+function resolveAppealUrl(it) {
+  return it.appealUrl
+    || platMap.value[it.code]?.appealUrl
+    || FALLBACK_APPEAL[it.code]
+    || '';
+}
 
 onMounted(async () => {
   await loadConfig().catch(() => {});
@@ -223,7 +231,7 @@ async function onPaid(orderNo) {
   showDialog({ title: '提示', message: '支付结果确认中，请稍后下拉刷新或联系客服。' });
 }
 
-/* -------------------- 提交去标记工单 -------------------- */
+/* -------------------- 跳转官方解标页 -------------------- */
 async function checkOrder(no) {
   try {
     const o = await orderStatus(no);
@@ -231,17 +239,19 @@ async function checkOrder(no) {
   } catch (e) { /* ignore */ }
 }
 
-async function handleClear(codes) {
-  if (!getToken()) return gotoAuth();
-  submitting.value = true;
-  try {
-    const r = await submitClear(data.value.phone, codes);
-    showSuccessToast('已提交处理');
-    router.push({ path: '/tasks', query: { phone: data.value.phone } });
-    return r;
-  } finally {
-    submitting.value = false;
+function handleAppeal(it) {
+  const url = resolveAppealUrl(it);
+  if (!url) {
+    showDialog({
+      title: '提示',
+      message: `「${it.name}」暂无在线申诉入口，请联系客服协助处理。`,
+      confirmButtonText: '联系客服',
+      showCancelButton: true,
+    }).then(() => router.push('/contact')).catch(() => {});
+    return;
   }
+  // 微信内跳转外链
+  window.location.href = url;
 }
 </script>
 
@@ -281,6 +291,8 @@ async function handleClear(codes) {
   width: 100%; padding: 12px; border-radius: 24px; font-size: 15px;
 }
 .link-card { display: flex; align-items: center; justify-content: space-between; font-size: 15px; font-weight: 600; }
+.tip-card { font-size: 13px; color: var(--text-2); line-height: 1.6; }
+.tip-card p { margin: 0; }
 
 .clean { padding: 30px 16px; color: var(--text-2); }
 .clean-icon {

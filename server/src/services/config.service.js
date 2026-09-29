@@ -4,6 +4,12 @@ let cache = null;
 let cacheAt = 0;
 const TTL = 10 * 1000; // 10s 本地缓存，后台改完最多 10 秒生效
 
+const WX_KEYS = new Set([
+  'site_url', 'wx_appid', 'wx_appsecret',
+  'wxpay_mchid', 'wxpay_serial_no', 'wxpay_api_v3_key',
+  'wxpay_notify_url', 'wxpay_private_key',
+]);
+
 async function all(force = false) {
   if (!force && cache && Date.now() - cacheAt < TTL) return cache;
   const rows = await db.query('SELECT `k`,`v` FROM sys_config');
@@ -33,10 +39,17 @@ async function set(key, value) {
 }
 
 async function setMany(obj) {
-  for (const [k, v] of Object.entries(obj)) await set(k, v);
+  let touchWx = false;
+  for (const [k, v] of Object.entries(obj)) {
+    await set(k, v);
+    if (WX_KEYS.has(k)) touchWx = true;
+  }
   cache = null;
+  if (touchWx) {
+    try { require('./wxcfg.service').notifyChange(); } catch (e) { /* */ }
+  }
 }
 
 function flush() { cache = null; }
 
-module.exports = { all, get, num, set, setMany, flush };
+module.exports = { all, get, num, set, setMany, flush, WX_KEYS };

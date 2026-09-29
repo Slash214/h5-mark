@@ -2,8 +2,8 @@ const router = require('express').Router();
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const cfg = require('../../config');
-const { ok } = require('../../utils/helper');
+const wxcfg = require('../../services/wxcfg.service');
+const { ok, wrap } = require('../../utils/helper');
 
 const dir = path.resolve(__dirname, '../../../uploads');
 fs.mkdirSync(dir, { recursive: true });
@@ -24,10 +24,11 @@ const upload = multer({
   },
 });
 
-router.post('/image', upload.single('file'), (req, res) => {
+router.post('/image', upload.single('file'), wrap(async (req, res) => {
   if (!req.file) return res.status(400).json({ code: 1, msg: '未收到文件' });
-  const url = `${cfg.siteUrl || ''}/uploads/${req.file.filename}`;
+  const site = await wxcfg.siteUrl();
+  const url = `${site || ''}/uploads/${req.file.filename}`;
   res.json(ok({ url, path: `/uploads/${req.file.filename}` }));
-});
+}));
 
 module.exports = router;

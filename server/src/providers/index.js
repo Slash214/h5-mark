@@ -1,8 +1,10 @@
 const conf = require('../services/config.service');
 const mock = require('./mock');
 const http = require('./http');
+const tmini = require('./tmini');
+const qbc = require('./qbc');
 
-const registry = { mock, http };
+const registry = { mock, http, tmini, qbc };
 
 /** 注册自定义数据源：require('./providers').register(myProvider) */
 function register(p) {

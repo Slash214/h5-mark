@@ -3,7 +3,8 @@ import { showToast, showDialog } from 'vant';
 
 const http = axios.create({
   baseURL: import.meta.env.VITE_API_BASE || '/api',
-  timeout: 20000,
+  // 第三方号码查询可达 20~30s，前端需留足余量
+  timeout: 65000,
 });
 
 export const TOKEN_KEY = 'h5mark_token';
