@@ -75,8 +75,8 @@ server {
     client_max_body_size 10m;
 
     # 微信域名校验文件（网页授权 / JS / 业务域名）
-    # 文件放站点根目录（与 web/dist 同级也可），须在 SPA try_files 之前匹配
-    location ~* ^/(MP_verify_[A-Za-z0-9_-]+\.txt|[A-Za-z0-9]{10,}\.txt)$ {
+    # 文件放站点根目录；须在 SPA try_files 之前。勿在正则里写 {n,}（nginx 会当配置块）
+    location ^~ /MP_verify_ {
         root /www/wwwroot/你的站点目录;
         default_type text/plain;
         charset utf-8;
