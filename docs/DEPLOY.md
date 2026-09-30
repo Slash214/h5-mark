@@ -74,6 +74,15 @@ server {
 
     client_max_body_size 10m;
 
+    # 微信域名校验文件（网页授权 / JS / 业务域名）
+    # 文件放站点根目录（与 web/dist 同级也可），须在 SPA try_files 之前匹配
+    location ~* ^/(MP_verify_[A-Za-z0-9_-]+\.txt|[A-Za-z0-9]{10,}\.txt)$ {
+        root /www/wwwroot/你的站点目录;
+        default_type text/plain;
+        charset utf-8;
+        access_log off;
+    }
+
     # H5
     root /www/h5-mark/web/dist;
     index index.html;
@@ -100,11 +109,6 @@ server {
     # 后台上传的图片
     location /uploads/ {
         proxy_pass http://127.0.0.1:3000;
-    }
-
-    # 微信域名校验文件（网页授权 / JS 安全域名）
-    location ~ ^/MP_verify_.*\.txt$ {
-        root /www/h5-mark/web/dist;
     }
 }
 ```

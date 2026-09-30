@@ -181,6 +181,10 @@ INSERT INTO `sys_config` (`k`,`v`,`name`,`type`,`group`,`sort`) VALUES
 ('provider_method','GET','请求方式 GET/POST(仅通用http)','text','provider',33),
 ('provider_phone_field','phone','号码参数名(仅通用http)','text','provider',34),
 ('provider_key_field','api_key','密钥参数名(仅通用http)','text','provider',35),
+('query_cache_ttl','1800','同号查询缓存秒数(0=关闭)','number','provider',36),
+('query_rate_per_min','1','每分钟真实查询上限','number','provider',37),
+('query_rate_per_day','30','每日真实查询上限(openid)','number','provider',38),
+('query_require_login','0','查询强制登录(0否/1是)','text','provider',39),
 
 ('site_url','','站点域名(HTTPS，无末尾/)','text','wechat',40),
 ('wx_appid','','公众号 AppID','text','wechat',41),

@@ -23,6 +23,7 @@
           未检测到平台标记
         </template>
       </h2>
+      <p v-if="data.cached" class="cache-tip">结果来自近期缓存，短时间内重复查询不会重新扣费</p>
 
       <!-- 未开通 -->
       <template v-if="!data.isMember">
@@ -297,6 +298,7 @@ function handleAppeal(it) {
 .mark-title { font-size: 17px; font-weight: 700; text-align: center; margin: 20px 0 14px; }
 .mark-title b { color: var(--danger); margin: 0 2px; }
 .mark-title.clean { color: #059669; }
+.cache-tip { text-align: center; font-size: 12px; color: var(--text-3, #94a3b8); margin: -8px 0 14px; }
 
 .mark-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
 .mark-row.column { display: block; }

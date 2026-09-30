@@ -81,6 +81,28 @@
             <el-form-item label="密钥参数名"><el-input v-model="form.provider_key_field" placeholder="api_key" /></el-form-item>
             <el-form-item label="接口密钥"><el-input v-model="form.provider_key" show-password /></el-form-item>
           </template>
+          <el-divider>防刷 / 省调用费</el-divider>
+          <el-form-item label="同号缓存(秒)">
+            <el-input-number v-model="form.query_cache_ttl" :min="0" :max="86400" :step="60" />
+            <span class="hint">默认 1800=30 分钟；填 0 关闭。缓存命中不扣上游费用</span>
+          </el-form-item>
+          <el-form-item label="每分钟上限">
+            <el-input-number v-model="form.query_rate_per_min" :min="0" :max="60" />
+            <span class="hint">真实请求上游的次数；0=不限</span>
+          </el-form-item>
+          <el-form-item label="每日上限">
+            <el-input-number v-model="form.query_rate_per_day" :min="0" :max="9999" />
+            <span class="hint">按微信 openid；未登录按 IP 且日上限减半</span>
+          </el-form-item>
+          <el-form-item label="强制登录查询">
+            <el-switch
+              v-model="form.query_require_login"
+              active-value="1"
+              inactive-value="0"
+              active-text="开启"
+              inactive-text="关闭" />
+            <span class="hint">开启后必须微信授权才能查询</span>
+          </el-form-item>
         </el-form>
       </el-tab-pane>
 

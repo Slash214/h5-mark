@@ -2,7 +2,7 @@ import http from './request';
 
 export const getConfig = () => http.get('/config');
 
-export const queryMark = (phone) => http.post('/query', { phone });
+export const queryMark = (phone, opts = {}) => http.post('/query', { phone, ...opts });
 export const memberStatus = (phone) => http.get('/query/member', { params: { phone } });
 export const submitClear = (phone, platforms) => http.post('/query/clear', { phone, platforms });
 export const clearList = (phone) => http.get('/query/clear/list', { params: { phone } });

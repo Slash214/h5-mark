@@ -2,26 +2,61 @@ const router = require('express').Router();
 const db = require('../db');
 const { userOptional, userAuth } = require('../middleware/auth');
 const { HttpError } = require('../middleware/error');
-const { isPhone, ok, wrap } = require('../utils/helper');
+const { isPhone, ok, wrap, clientIp } = require('../utils/helper');
 const query = require('../services/query.service');
 const member = require('../services/member.service');
 const conf = require('../services/config.service');
+const ratelimit = require('../utils/ratelimit');
 
 /**
  * 自助查询
- * 未开通会员：只返回“被 N 个平台标记”，不返回是哪几个平台
- * 已开通会员：返回完整明细
+ * - 同号短时缓存，避免重复扣费
+ * - 上游调用按 openid / IP 限频（缓存命中不计）
+ * - 未开通会员：只返回标记数量
  */
 router.post('/', userOptional, wrap(async (req, res) => {
   const phone = String(req.body.phone || '').trim();
   if (!isPhone(phone)) throw new HttpError('请输入正确的 11 位手机号码');
 
+  const requireLogin = String(await conf.get('query_require_login', '0')) === '1';
+  if (requireLogin && !req.user) {
+    throw new HttpError('请先在微信中授权登录后再查询', 401);
+  }
+
   const openid = req.user ? req.user.openid : null;
+  const ip = clientIp(req) || 'unknown';
+  const perMin = await conf.num('query_rate_per_min', 1);
+  const perDay = await conf.num('query_rate_per_day', 30);
+  const force = !!req.body.force;
+
+  // 强制刷新仅会员可用（仍走限频，且会真实扣费）
+  let useForce = false;
+  if (force) {
+    const m0 = await member.status(phone);
+    if (!m0.isMember) throw new HttpError('仅会员可强制刷新查询', 402);
+    useForce = true;
+  }
+
   if (openid) await db.query('UPDATE wx_user SET last_phone=? WHERE openid=?', [phone, openid]);
 
-  const m = await member.status(phone);
-  const r = await query.queryMark(phone, openid, req);
+  const idKey = openid ? `oid:${openid}` : `ip:${ip}`;
+  const dayMax = openid ? perDay : Math.max(1, Math.floor(perDay / 2));
 
+  const r = await query.queryMark(phone, openid, req, {
+    force: useForce,
+    beforeFetch: () => {
+      const minHit = ratelimit.hit(`${idKey}:min`, perMin, 60);
+      if (!minHit.ok) {
+        throw new HttpError(`查询过于频繁，请 ${minHit.retryAfterSec} 秒后再试`, 429);
+      }
+      const dayHit = ratelimit.hit(ratelimit.dayKey(idKey), dayMax, 86400);
+      if (!dayHit.ok) {
+        throw new HttpError(`今日查询次数已达上限（${dayMax} 次），请明天再试或联系客服`, 429);
+      }
+    },
+  });
+
+  const m = await member.status(phone);
   const payload = {
     phone,
     isMember: m.isMember,
@@ -30,7 +65,7 @@ router.post('/', userOptional, wrap(async (req, res) => {
     markCount: r.markCount,
     price: await conf.num('price', 990),
     memberDays: await conf.num('member_days', 30),
-    // 未开通会员时隐藏平台明细
+    cached: !!r.cached,
     list: m.isMember
       ? r.list
       : r.list.filter((x) => x.marked).map(() => ({ code: '', name: '开通会员后可见', marked: true, tag: '', locked: true })),
@@ -60,7 +95,6 @@ router.post('/clear', userAuth, wrap(async (req, res) => {
   const created = [];
   for (const code of codes) {
     if (!map[code]) continue;
-    // 同号码同平台如已有未完成工单则不重复创建
     const exist = await db.one(
       'SELECT id FROM clear_task WHERE phone=? AND platform_code=? AND status IN (0,1)', [phone, code]
     );
