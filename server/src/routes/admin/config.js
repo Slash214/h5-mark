@@ -2,6 +2,8 @@ const router = require('express').Router();
 const db = require('../../db');
 const conf = require('../../services/config.service');
 const { ok, wrap } = require('../../utils/helper');
+const { HttpError } = require('../../middleware/error');
+const crypto = require('crypto');
 
 /** 按分组返回全部配置项（价格 / 联系方式 / 数据源 / 基础） */
 router.get('/', wrap(async (req, res) => {
@@ -17,6 +19,18 @@ router.get('/', wrap(async (req, res) => {
 router.put('/', wrap(async (req, res) => {
   const data = req.body || {};
   delete data.id;
+  if ('wxpay_public_key' in data || 'wxpay_public_key_id' in data) {
+    const pem = String(data.wxpay_public_key ?? await conf.get('wxpay_public_key', '')).trim();
+    const id = String(data.wxpay_public_key_id ?? await conf.get('wxpay_public_key_id', '')).trim();
+    if (pem || id) {
+      if (!/^PUB_KEY_ID_\w+$/.test(id)) throw new HttpError('请填写正确的微信支付公钥 ID（PUB_KEY_ID_ 开头）');
+      try {
+        if (!pem.includes('BEGIN PUBLIC KEY') || crypto.createPublicKey(pem).asymmetricKeyType !== 'rsa') throw new Error();
+      } catch {
+        throw new HttpError('请填写有效的微信支付 RSA 公钥 PEM，不能使用商户私钥或商户证书');
+      }
+    }
+  }
   await conf.setMany(data);
   res.json(ok(null, '保存成功，H5 端 10 秒内生效'));
 }));

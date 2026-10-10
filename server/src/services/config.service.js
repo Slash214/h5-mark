@@ -8,6 +8,7 @@ const WX_KEYS = new Set([
   'site_url', 'wx_appid', 'wx_appsecret',
   'wxpay_mchid', 'wxpay_serial_no', 'wxpay_api_v3_key',
   'wxpay_notify_url', 'wxpay_private_key',
+  'wxpay_public_key_id', 'wxpay_public_key',
 ]);
 
 async function all(force = false) {

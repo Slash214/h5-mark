@@ -134,6 +134,7 @@ import { store, yuan, loadConfig } from '../store';
 import { queryMark, createPay, orderStatus } from '../api';
 import { getToken } from '../api/request';
 import PlatIcon from '../components/PlatIcon.vue';
+import { waitForWxBridge, invokeWxPay } from '../utils/wxpay';
 
 const route = useRoute();
 const router = useRouter();
@@ -187,20 +188,26 @@ async function refresh() {
 }
 
 async function doPay() {
+  if (paying.value) return;
   if (!agreed.value) return showToast('请先阅读并同意用户协议');
-  if (!getToken()) return gotoAuth();
   paying.value = true;
   showLoadingToast({ message: '正在下单...', forbidClick: true, duration: 0 });
   try {
+    const bridge = await waitForWxBridge();
+    if (!getToken()) { closeToast(); return gotoAuth(); }
     const r = await createPay(data.value.phone);
     closeToast();
     if (r.devPaid) {
       await onPaid(r.orderNo);
       return;
     }
-    invokeWxPay(r.payParams, r.orderNo);
+    await router.replace({ query: { ...route.query, phone: data.value.phone, orderNo: r.orderNo } });
+    const result = await invokeWxPay(bridge, r.payParams);
+    if (result === 'ok') await onPaid(r.orderNo);
+    else showToast('已取消支付');
   } catch (e) {
     closeToast();
+    showToast(e.response?.data?.msg || e.message || '支付未完成，请稍后重试');
   } finally {
     paying.value = false;
   }
@@ -209,27 +216,6 @@ async function doPay() {
 function gotoAuth() {
   const base = import.meta.env.VITE_API_BASE || '/api';
   location.href = `${base}/auth/login?redirect=${encodeURIComponent('/result?phone=' + data.value.phone)}`;
-}
-
-function invokeWxPay(params, orderNo) {
-  const invoke = () => {
-    window.WeixinJSBridge.invoke('getBrandWCPayRequest', {
-      appId: params.appId,
-      timeStamp: params.timeStamp,
-      nonceStr: params.nonceStr,
-      package: params.package,
-      signType: params.signType,
-      paySign: params.paySign,
-    }, (res) => {
-      if (res.err_msg === 'get_brand_wcpay_request:ok') onPaid(orderNo);
-      else if (res.err_msg === 'get_brand_wcpay_request:cancel') showToast('已取消支付');
-      else showToast('支付未完成');
-    });
-  };
-  if (typeof window.WeixinJSBridge === 'undefined') {
-    document.addEventListener('WeixinJSBridgeReady', invoke, false);
-    showToast('请在微信中打开本页面完成支付');
-  } else invoke();
 }
 
 async function onPaid(orderNo) {

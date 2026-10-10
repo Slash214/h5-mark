@@ -15,6 +15,8 @@ const KEYS = {
   wxpay_api_v3_key: 'wxpay_api_v3_key',
   wxpay_notify_url: 'wxpay_notify_url',
   wxpay_private_key: 'wxpay_private_key', // PEM 正文（优先）
+  wxpay_public_key_id: 'wxpay_public_key_id',
+  wxpay_public_key: 'wxpay_public_key',
 };
 
 async function pick(dbKey, envVal = '') {
@@ -44,6 +46,8 @@ async function wxpay() {
     notifyUrl: await pick(KEYS.wxpay_notify_url, env.wxpay.notifyUrl),
     privateKeyPem: pem,
     privateKeyPath: env.wxpay.privateKeyPath,
+    publicKeyId: await pick(KEYS.wxpay_public_key_id, env.wxpay.publicKeyId),
+    publicKeyPem: await pick(KEYS.wxpay_public_key, env.wxpay.publicKeyPem),
   };
 }
 

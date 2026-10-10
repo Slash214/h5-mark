@@ -5,6 +5,7 @@
   "main": "src/server.js",
   "type": "commonjs",
   "scripts": {
+    "test": "node --test test/*.test.cjs",
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "init-admin": "node scripts/reset-admin.js"

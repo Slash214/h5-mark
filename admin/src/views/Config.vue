@@ -173,6 +173,14 @@
             </div>
             <div class="hint" style="margin-left:0">上传后自动写入配置；保存设置后生效</div>
           </el-form-item>
+          <el-divider content-position="left">微信支付公钥（用于验签）</el-divider>
+          <el-alert type="info" :closable="false" title="在商户平台 → API安全获取微信支付公钥。它与上方商户私钥、商户证书序列号不同；无平台证书的商户必须配置。" style="margin-bottom: 16px" />
+          <el-form-item label="微信支付公钥 ID">
+            <el-input v-model="form.wxpay_public_key_id" placeholder="PUB_KEY_ID_ 开头" />
+          </el-form-item>
+          <el-form-item label="微信支付公钥 PEM">
+            <el-input v-model="form.wxpay_public_key" type="textarea" :rows="6" placeholder="粘贴下载的公钥文件完整内容，含 BEGIN PUBLIC KEY 和 END PUBLIC KEY" />
+          </el-form-item>
         </el-form>
       </el-tab-pane>
 

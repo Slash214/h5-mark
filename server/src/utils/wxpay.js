@@ -29,12 +29,13 @@ async function getPayCfg() {
   if (!pay.mchid) throw new Error('未配置微信支付商户号 mchid');
   if (!pay.serialNo) throw new Error('未配置商户 API 证书序列号');
   if (!pay.apiV3Key) throw new Error('未配置 APIv3 密钥');
+  if (Buffer.byteLength(pay.apiV3Key, 'utf8') !== 32) throw new Error('APIv3 密钥必须为 32 字节');
   return { wx, pay };
 }
 
 async function getPrivateKey(pay) {
   const fingerprint = pay.privateKeyPem
-    ? 'pem:' + pay.privateKeyPem.slice(0, 64)
+    ? 'pem:' + crypto.createHash('sha256').update(pay.privateKeyPem).digest('hex')
     : 'path:' + pay.privateKeyPath;
   if (privateKeyCache.pem && privateKeyCache.fingerprint === fingerprint) {
     return privateKeyCache.pem;
@@ -76,23 +77,30 @@ async function request(method, urlPath, data) {
     'Content-Type': 'application/json',
     'User-Agent': 'h5-mark/1.0',
   };
+  if (pay.publicKeyId) headers['Wechatpay-Serial'] = pay.publicKeyId;
   const res = await axios({
     method, url: BASE + urlPath, data: method === 'GET' ? undefined : data,
     headers, timeout: 15000, validateStatus: () => true,
+    responseType: 'text', transformResponse: [(value) => value],
   });
+  // 必须对未经 JSON 重排的原始响应验签；证书下载由 APIv3 密钥解密认证。
+  if (urlPath !== '/v3/certificates' && !(await verifyNotify(res.headers, res.data))) {
+    throw new Error('微信支付响应签名验证失败，请检查微信支付公钥配置');
+  }
+  const result = res.data ? JSON.parse(res.data) : {};
   if (res.status >= 400) {
-    const e = new Error(`微信支付接口错误(${res.status}): ${res.data && (res.data.message || JSON.stringify(res.data))}`);
+    const e = new Error(`微信支付接口错误(${res.status}): ${result.message || result.code || '请求失败'}`);
     e.status = 500;
-    e.wxpay = res.data;
+    e.wxpay = result;
     throw e;
   }
-  return res.data;
+  return result;
 }
 
 async function jsapiPrepay({ description, outTradeNo, amountFen, openid, attach, notifyUrl }) {
   const { wx, pay } = await getPayCfg();
   const notify = notifyUrl || pay.notifyUrl;
-  if (!notify) throw new Error('未配置支付回调地址 WXPAY_NOTIFY_URL / 后台 wxpay_notify_url');
+  if (!notify || new URL(notify).protocol !== 'https:') throw new Error('请配置 HTTPS 支付回调地址');
   return request('POST', '/v3/pay/transactions/jsapi', {
     appid: wx.appid,
     mchid: pay.mchid,
@@ -124,13 +132,13 @@ async function buildJsapiParams(prepayId) {
 
 async function queryByOutTradeNo(outTradeNo) {
   const { pay } = await getPayCfg();
-  const p = `/v3/pay/transactions/out-trade-no/${outTradeNo}?mchid=${pay.mchid}`;
+  const p = `/v3/pay/transactions/out-trade-no/${encodeURIComponent(outTradeNo)}?mchid=${encodeURIComponent(pay.mchid)}`;
   return request('GET', p);
 }
 
 async function closeOrder(outTradeNo) {
   const { pay } = await getPayCfg();
-  return request('POST', `/v3/pay/transactions/out-trade-no/${outTradeNo}/close`, { mchid: pay.mchid });
+  return request('POST', `/v3/pay/transactions/out-trade-no/${encodeURIComponent(outTradeNo)}/close`, { mchid: pay.mchid });
 }
 
 async function decryptResource(resource) {
@@ -146,9 +154,9 @@ async function decryptResource(resource) {
   return JSON.parse(Buffer.concat([decipher.update(data), decipher.final()]).toString('utf8'));
 }
 
-async function loadPlatformCerts() {
+async function loadPlatformCerts(force = false) {
   const { pay } = await getPayCfg();
-  if (platformCerts && certsMchid === pay.mchid && Date.now() - certsAt < 12 * 3600 * 1000) {
+  if (!force && platformCerts && certsMchid === pay.mchid && Date.now() - certsAt < 12 * 3600 * 1000) {
     return platformCerts;
   }
   const data = await request('GET', '/v3/certificates');
@@ -175,10 +183,18 @@ async function verifyNotify(headers, rawBody) {
   const signature = headers['wechatpay-signature'];
   const serial = headers['wechatpay-serial'];
   if (!ts || !nonce || !signature || !serial) return false;
-  if (Math.abs(Date.now() / 1000 - Number(ts)) > 300) return false;
+  if (!/^\d+$/.test(String(ts)) || Math.abs(Date.now() / 1000 - Number(ts)) > 300) return false;
 
-  const certs = await loadPlatformCerts();
-  const pem = certs[serial];
+  const { pay } = await getPayCfg();
+  let pem;
+  if (String(serial).startsWith('PUB_KEY_ID_')) {
+    if (serial !== pay.publicKeyId || !pay.publicKeyPem) return false;
+    pem = pay.publicKeyPem;
+  } else {
+    let certs = await loadPlatformCerts();
+    if (!certs[serial]) certs = await loadPlatformCerts(true);
+    pem = certs[serial];
+  }
   if (!pem) return false;
   const message = `${ts}\n${nonce}\n${rawBody}\n`;
   return crypto.createVerify('RSA-SHA256').update(message).verify(pem, signature, 'base64');

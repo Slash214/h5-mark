@@ -16,8 +16,8 @@ router.post('/jsapi', userAuth, wrap(async (req, res) => {
 }));
 
 /** 支付完成后前端主动查单（兜底，回调可能延迟） */
-router.get('/order/:orderNo', wrap(async (req, res) => {
-  const r = await orderSvc.syncFromWx(req.params.orderNo);
+router.get('/order/:orderNo', userAuth, wrap(async (req, res) => {
+  const r = await orderSvc.syncFromWx(req.params.orderNo, req.user.openid);
   const o = r.order;
   const m = await member.status(o.phone);
   res.json(ok({
@@ -68,11 +68,9 @@ router.post('/notify', wrap(async (req, res) => {
   }
 
   try {
-    const data = wxpay.decryptResource(body.resource);
-    if (data.trade_state === 'SUCCESS') {
-      const r = await orderSvc.markPaid(data.out_trade_no, data.transaction_id, JSON.stringify(data));
-      console.log('[pay/notify] 订单已处理', data.out_trade_no, r.repeated ? '(重复回调)' : '(首次)');
-    }
+    const data = await wxpay.decryptResource(body.resource);
+    const r = await orderSvc.markWxPaid(data);
+    console.log('[pay/notify] 订单已处理', data.out_trade_no, r.repeated ? '(重复回调)' : '(首次)');
     res.json({ code: 'SUCCESS', message: '成功' });
   } catch (e) {
     console.error('[pay/notify] 处理失败', e);

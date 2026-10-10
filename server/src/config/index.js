@@ -31,6 +31,8 @@ module.exports = {
     ),
     apiV3Key: process.env.WXPAY_API_V3_KEY || '',
     notifyUrl: process.env.WXPAY_NOTIFY_URL || '',
+    publicKeyId: process.env.WXPAY_PUBLIC_KEY_ID || '',
+    publicKeyPem: (process.env.WXPAY_PUBLIC_KEY || '').replace(/\\n/g, '\n'),
   },
   dev: {
     fakeLogin: bool(process.env.DEV_FAKE_LOGIN),
